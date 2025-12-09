@@ -102,15 +102,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateUserProfile = async (data: Partial<UserProfile>) => {
     if (!user) throw new Error("No user logged in");
 
-    const docRef = doc(db, "users", user.uid);
-    await setDoc(docRef, { ...userProfile, ...data }, { merge: true });
-    setUserProfile((prev) => (prev ? { ...prev, ...data } : null));
+    try {
+      const docRef = doc(db, "users", user.uid);
+      
+      // Build the update object, only including defined values
+      const updateData: Record<string, unknown> = {};
+      if (data.displayName !== undefined) updateData.displayName = data.displayName;
+      if (data.photoUrl !== undefined) updateData.photoUrl = data.photoUrl;
+      if (data.videoUrl !== undefined) updateData.videoUrl = data.videoUrl;
+      
+      // Use merge to only update specified fields
+      await setDoc(docRef, updateData, { merge: true });
+      
+      // Update local state
+      setUserProfile((prev) => (prev ? { ...prev, ...data } : null));
 
-    if (data.displayName) {
-      await updateProfile(user, { displayName: data.displayName });
-    }
-    if (data.photoUrl) {
-      await updateProfile(user, { photoURL: data.photoUrl });
+      // Update Firebase Auth profile
+      if (data.displayName) {
+        await updateProfile(user, { displayName: data.displayName });
+      }
+      if (data.photoUrl) {
+        await updateProfile(user, { photoURL: data.photoUrl });
+      }
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      throw error;
     }
   };
 

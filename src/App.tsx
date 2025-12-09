@@ -10,6 +10,8 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Priority from "./pages/Priority";
 import Learn from "./pages/Learn";
+import Food from "./pages/Food";
+import Company from "./pages/Company";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -66,6 +68,22 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <Learn />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/food"
+      element={
+        <ProtectedRoute>
+          <Food />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/company"
+      element={
+        <ProtectedRoute>
+          <Company />
         </ProtectedRoute>
       }
     />

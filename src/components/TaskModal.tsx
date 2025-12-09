@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Task, TaskCategory, TaskFormData, CATEGORY_LABELS } from "@/types/task";
+import { motion } from "framer-motion";
+import { Task, TaskCategory, TaskFormData, CATEGORY_LABELS, CATEGORY_COLORS } from "@/types/task";
 import {
   Dialog,
   DialogContent,
@@ -17,10 +18,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Star, Loader2 } from "lucide-react";
+import { 
+  CalendarIcon, 
+  Star, 
+  Loader2, 
+  Clock, 
+  Repeat, 
+  Tag,
+  FileText,
+  Sparkles
+} from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +50,14 @@ const TIME_OPTIONS = [
   "18:00", "18:30", "19:00", "19:30", "20:00", "20:30",
   "21:00", "21:30", "22:00", "22:30", "23:00"
 ];
+
+const CATEGORY_ICONS: Record<TaskCategory, string> = {
+  work: "💼",
+  personal: "👤",
+  learn: "📚",
+  health: "💪",
+  other: "📌",
+};
 
 export const TaskModal = ({
   isOpen,
@@ -85,16 +102,17 @@ export const TaskModal = ({
 
     setSaving(true);
     try {
-      await onSave({
+      const taskData: TaskFormData = {
         title: title.trim(),
-        notes: notes.trim() || undefined,
+        notes: notes.trim() || null,
         date: format(date, "yyyy-MM-dd"),
-        time: time || undefined,
+        time: time || null,
         category,
         priority,
         completed: task?.completed || false,
-        repeat,
-      });
+        repeat: repeat || null,
+      };
+      await onSave(taskData);
     } finally {
       setSaving(false);
     }
@@ -102,15 +120,32 @@ export const TaskModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>{task ? "Edit Task" : "Add New Task"}</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden bg-card/95 backdrop-blur-xl border-border/50">
+        {/* Header with gradient */}
+        <div className="relative px-6 pt-6 pb-4 bg-gradient-to-br from-primary/5 to-transparent">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              {task ? "Edit Task" : "Add New Task"}
+              {priority && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="inline-flex"
+                >
+                  <Star className="w-5 h-5 text-warning fill-warning" />
+                </motion.span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-5">
           {/* Title */}
           <div className="space-y-2">
-            <Label htmlFor="title">Task Title</Label>
+            <Label htmlFor="title" className="text-sm font-medium flex items-center gap-2">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              Task Title
+            </Label>
             <Input
               id="title"
               placeholder="What needs to be done?"
@@ -118,59 +153,70 @@ export const TaskModal = ({
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
               required
+              className="h-12 rounded-xl border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
             />
           </div>
 
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes (optional)</Label>
+            <Label htmlFor="notes" className="text-sm font-medium text-muted-foreground">
+              Notes (optional)
+            </Label>
             <Textarea
               id="notes"
               placeholder="Add any additional details..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
+              className="rounded-xl border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 resize-none transition-all"
             />
           </div>
 
           {/* Date & Time */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Date</Label>
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                Date
+              </Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "w-full h-11 justify-start text-left font-normal rounded-xl border-border/50 hover:bg-muted/50",
                       !date && "text-muted-foreground"
                     )}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
                     {format(date, "MMM d, yyyy")}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 rounded-xl" align="start">
                   <Calendar
                     mode="single"
                     selected={date}
                     onSelect={(d) => d && setDate(d)}
                     initialFocus
+                    className="rounded-xl"
                   />
                 </PopoverContent>
               </Popover>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="time">Time (optional)</Label>
+              <Label htmlFor="time" className="text-sm font-medium flex items-center gap-2">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                Time
+              </Label>
               <Select value={time} onValueChange={setTime}>
-                <SelectTrigger id="time">
-                  <SelectValue placeholder="Select time" />
+                <SelectTrigger id="time" className="h-11 rounded-xl border-border/50">
+                  <SelectValue placeholder="Any time" />
                 </SelectTrigger>
-                <SelectContent className="max-h-60">
+                <SelectContent className="max-h-60 rounded-xl">
                   {TIME_OPTIONS.map((t) => (
                     <SelectItem key={t || "none"} value={t || "none"}>
-                      {t || "No specific time"}
+                      {t || "Any time"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -181,15 +227,21 @@ export const TaskModal = ({
           {/* Category & Repeat */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category" className="text-sm font-medium flex items-center gap-2">
+                <Tag className="w-4 h-4 text-muted-foreground" />
+                Category
+              </Label>
               <Select value={category} onValueChange={(v) => setCategory(v as TaskCategory)}>
-                <SelectTrigger id="category">
+                <SelectTrigger id="category" className="h-11 rounded-xl border-border/50">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-xl">
                   {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
                     <SelectItem key={key} value={key}>
-                      {label}
+                      <span className="flex items-center gap-2">
+                        <span>{CATEGORY_ICONS[key as TaskCategory]}</span>
+                        {label}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -197,15 +249,18 @@ export const TaskModal = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="repeat">Repeat</Label>
+              <Label htmlFor="repeat" className="text-sm font-medium flex items-center gap-2">
+                <Repeat className="w-4 h-4 text-muted-foreground" />
+                Repeat
+              </Label>
               <Select
                 value={repeat || "none"}
                 onValueChange={(v) => setRepeat(v === "none" ? null : (v as any))}
               >
-                <SelectTrigger id="repeat">
+                <SelectTrigger id="repeat" className="h-11 rounded-xl border-border/50">
                   <SelectValue placeholder="No repeat" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-xl">
                   <SelectItem value="none">No repeat</SelectItem>
                   <SelectItem value="daily">Daily</SelectItem>
                   <SelectItem value="weekly">Weekly</SelectItem>
@@ -215,27 +270,70 @@ export const TaskModal = ({
             </div>
           </div>
 
-          {/* Priority toggle */}
-          <div className="flex items-center justify-between py-2">
-            <div className="flex items-center gap-2">
-              <Star className={cn("w-5 h-5", priority ? "text-warning fill-warning" : "text-muted-foreground")} />
-              <Label htmlFor="priority" className="cursor-pointer">
-                Mark as Priority
-              </Label>
+          {/* Priority toggle - Premium styled */}
+          <motion.button
+            type="button"
+            onClick={() => setPriority(!priority)}
+            className={cn(
+              "w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all",
+              priority 
+                ? "border-warning bg-warning/10" 
+                : "border-border/50 hover:border-warning/50 hover:bg-warning/5"
+            )}
+            whileTap={{ scale: 0.98 }}
+          >
+            <div className="flex items-center gap-3">
+              <motion.div
+                animate={{ 
+                  rotate: priority ? [0, -10, 10, 0] : 0,
+                  scale: priority ? [1, 1.2, 1] : 1
+                }}
+                transition={{ duration: 0.5 }}
+              >
+                <Star className={cn(
+                  "w-6 h-6 transition-colors",
+                  priority 
+                    ? "text-warning fill-warning" 
+                    : "text-muted-foreground"
+                )} />
+              </motion.div>
+              <div className="text-left">
+                <p className={cn(
+                  "font-medium",
+                  priority ? "text-warning" : "text-foreground"
+                )}>
+                  Priority Task
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {priority ? "This task is marked as important" : "Mark as important to focus on"}
+                </p>
+              </div>
             </div>
-            <Switch
-              id="priority"
-              checked={priority}
-              onCheckedChange={setPriority}
-            />
-          </div>
+            {priority && (
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+              >
+                <Sparkles className="w-5 h-5 text-warning" />
+              </motion.div>
+            )}
+          </motion.button>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose}
+              className="rounded-xl px-5"
+            >
               Cancel
             </Button>
-            <Button type="submit" className="btn-primary" disabled={saving || !title.trim()}>
+            <Button 
+              type="submit" 
+              disabled={saving || !title.trim()}
+              className="rounded-xl px-6 shadow-md hover:shadow-lg transition-shadow"
+            >
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {task ? "Save Changes" : "Add Task"}
             </Button>
