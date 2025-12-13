@@ -141,6 +141,26 @@ export const useRoutine = (selectedDate: string) => {
     [updateBlock]
   );
 
+  // Toggle block lock status
+  const toggleLock = useCallback(
+    async (blockId: string, isLocked: boolean) => {
+      if (!user) throw new Error("No user logged in");
+
+      const routineDocId = `${user.uid}_${selectedDate}`;
+      const routineRef = doc(db, "routines", routineDocId);
+
+      const updatedBlocks = routineBlocks.map((block) =>
+        block.id === blockId ? { ...block, isLocked, isEditable: !isLocked } : block
+      );
+
+      await updateDoc(routineRef, {
+        blocks: updatedBlocks,
+        updatedAt: Timestamp.now(),
+      });
+    },
+    [user, selectedDate, routineBlocks]
+  );
+
   // Delete a routine block (only if not locked)
   const deleteBlock = useCallback(
     async (blockId: string) => {
@@ -224,6 +244,7 @@ export const useRoutine = (selectedDate: string) => {
     updateBlock,
     toggleComplete,
     togglePriority,
+    toggleLock,
     deleteBlock,
     addBlock,
     resetToDefault,

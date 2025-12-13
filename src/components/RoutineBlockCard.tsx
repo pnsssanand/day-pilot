@@ -8,6 +8,7 @@ import {
   Pencil,
   Trash2,
   Lock,
+  Unlock,
   MoreHorizontal,
   Sparkles,
 } from "lucide-react";
@@ -36,6 +37,7 @@ interface RoutineBlockCardProps {
   block: RoutineBlock;
   onToggleComplete: (blockId: string, completed: boolean) => Promise<void>;
   onTogglePriority: (blockId: string, priority: boolean) => Promise<void>;
+  onToggleLock: (blockId: string, isLocked: boolean) => Promise<void>;
   onEdit: (block: RoutineBlock) => void;
   onDelete: (blockId: string) => Promise<void>;
   isCurrentTimeBlock?: boolean;
@@ -70,6 +72,7 @@ export const RoutineBlockCard = ({
   block,
   onToggleComplete,
   onTogglePriority,
+  onToggleLock,
   onEdit,
   onDelete,
   isCurrentTimeBlock = false,
@@ -94,6 +97,10 @@ export const RoutineBlockCard = ({
 
   const handleTogglePriority = async () => {
     await onTogglePriority(block.id, !block.priority);
+  };
+
+  const handleToggleLock = async () => {
+    await onToggleLock(block.id, !block.isLocked);
   };
 
   const isSinglePoint = block.startTime === block.endTime;
@@ -257,7 +264,7 @@ export const RoutineBlockCard = ({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  {block.isEditable && (
+                  {block.isEditable && !block.isLocked && (
                     <DropdownMenuItem onClick={() => onEdit(block)}>
                       <Pencil className="w-4 h-4 mr-2" />
                       Edit Block
@@ -269,6 +276,19 @@ export const RoutineBlockCard = ({
                       block.priority && "fill-amber-400 text-amber-400"
                     )} />
                     {block.priority ? "Remove Priority" : "Mark Priority"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleToggleLock}>
+                    {block.isLocked ? (
+                      <>
+                        <Unlock className="w-4 h-4 mr-2" />
+                        Unlock Block
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4 mr-2" />
+                        Lock Block
+                      </>
+                    )}
                   </DropdownMenuItem>
                   {!block.isLocked && (
                     <>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,6 +24,8 @@ import {
   Sparkles,
   UtensilsCrossed,
   Building2,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +39,7 @@ const navItems = [
 
 export const Navbar = () => {
   const { userProfile, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoHovered, setLogoHovered] = useState(false);
@@ -136,6 +140,39 @@ export const Navbar = () => {
 
           {/* Right side */}
           <div className="flex items-center gap-3">
+            {/* Theme Toggle Button */}
+            <motion.button
+              onClick={toggleTheme}
+              className="relative p-2.5 rounded-xl bg-muted/50 hover:bg-muted border border-border/50 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            >
+              <AnimatePresence mode="wait">
+                {theme === "light" ? (
+                  <motion.div
+                    key="sun"
+                    initial={{ rotate: -90, opacity: 0 }}
+                    animate={{ rotate: 0, opacity: 1 }}
+                    exit={{ rotate: 90, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Sun className="w-5 h-5 text-amber-500" />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="moon"
+                    initial={{ rotate: 90, opacity: 0 }}
+                    animate={{ rotate: 0, opacity: 1 }}
+                    exit={{ rotate: -90, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Moon className="w-5 h-5 text-primary" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.button>
+
             {/* User dropdown with premium styling */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -113,6 +113,10 @@ export const TaskList = ({
     } else {
       await onAddTask(taskData);
     }
+    // Modal closes itself on success via onClose callback
+  };
+  
+  const handleModalClose = () => {
     setIsModalOpen(false);
     setEditingTask(null);
     setQuickAddTime(null);

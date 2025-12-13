@@ -1,9 +1,10 @@
 // Nutrition Types for DayPilot Food Section
 
 export interface NutritionInfo {
-  proteinPerUnit: number; // grams of protein
-  caloriesPerUnit: number; // calories
+  proteinPer100g: number; // grams of protein per 100g
+  caloriesPer100g: number; // calories per 100g
   defaultUnit: string; // default unit for this food
+  gramsPerUnit?: number; // optional: grams per piece/cup/bowl etc.
 }
 
 export interface DailyMenuItem {
@@ -13,11 +14,12 @@ export interface DailyMenuItem {
   unit: string;
   time: string; // HH:mm format
   notes: string | null;
-  // Nutrition data (calculated or user-provided)
-  proteinPerUnit: number;
-  caloriesPerUnit: number;
+  // Nutrition data (auto-calculated)
   totalProtein: number;
   totalCalories: number;
+  // Reference nutrition per 100g (for recalculation)
+  proteinPer100g: number;
+  caloriesPer100g: number;
   // If true, this food was auto-matched from reference table
   isFromReference: boolean;
   userId: string;
@@ -25,95 +27,115 @@ export interface DailyMenuItem {
   updatedAt?: Date;
 }
 
-export type DailyMenuFormData = Omit<DailyMenuItem, "id" | "userId" | "createdAt" | "updatedAt" | "totalProtein" | "totalCalories">;
+export type DailyMenuFormData = Omit<DailyMenuItem, "id" | "userId" | "createdAt" | "updatedAt">;
+
+// Unit to grams conversion mapping
+export const UNIT_TO_GRAMS: Record<string, number> = {
+  "g": 1,
+  "100g": 100,
+  "kg": 1000,
+  "ml": 1, // approximate: 1ml ≈ 1g for water-based
+  "100ml": 100,
+  "liter": 1000,
+  "piece": 50, // default, overridden per food
+  "pieces": 50,
+  "cup": 240,
+  "bowl": 300,
+  "glass": 250,
+  "scoop": 30,
+  "tbsp": 15,
+  "tsp": 5,
+  "slice": 30,
+  "serving": 150,
+};
 
 // Common food nutrition reference table
-// Values are per standard unit
+// Values are per 100g for standardization
 export const NUTRITION_REFERENCE: Record<string, NutritionInfo> = {
-  // Eggs & Dairy
-  "egg": { proteinPerUnit: 6, caloriesPerUnit: 70, defaultUnit: "piece" },
-  "eggs": { proteinPerUnit: 6, caloriesPerUnit: 70, defaultUnit: "piece" },
-  "boiled egg": { proteinPerUnit: 6, caloriesPerUnit: 70, defaultUnit: "piece" },
-  "boiled eggs": { proteinPerUnit: 6, caloriesPerUnit: 70, defaultUnit: "piece" },
-  "scrambled eggs": { proteinPerUnit: 6, caloriesPerUnit: 90, defaultUnit: "piece" },
-  "omelette": { proteinPerUnit: 12, caloriesPerUnit: 150, defaultUnit: "piece" },
-  "milk": { proteinPerUnit: 3.4, caloriesPerUnit: 42, defaultUnit: "100ml" },
-  "paneer": { proteinPerUnit: 18, caloriesPerUnit: 265, defaultUnit: "100g" },
-  "cottage cheese": { proteinPerUnit: 11, caloriesPerUnit: 98, defaultUnit: "100g" },
-  "curd": { proteinPerUnit: 3.5, caloriesPerUnit: 60, defaultUnit: "100g" },
-  "yogurt": { proteinPerUnit: 10, caloriesPerUnit: 100, defaultUnit: "100g" },
-  "greek yogurt": { proteinPerUnit: 10, caloriesPerUnit: 100, defaultUnit: "100g" },
-  "cheese": { proteinPerUnit: 25, caloriesPerUnit: 400, defaultUnit: "100g" },
-  "butter": { proteinPerUnit: 0.1, caloriesPerUnit: 72, defaultUnit: "10g" },
+  // Eggs & Dairy (egg ~50g per piece)
+  "egg": { proteinPer100g: 12, caloriesPer100g: 140, defaultUnit: "piece", gramsPerUnit: 50 },
+  "eggs": { proteinPer100g: 12, caloriesPer100g: 140, defaultUnit: "piece", gramsPerUnit: 50 },
+  "boiled egg": { proteinPer100g: 12, caloriesPer100g: 140, defaultUnit: "piece", gramsPerUnit: 50 },
+  "boiled eggs": { proteinPer100g: 12, caloriesPer100g: 140, defaultUnit: "piece", gramsPerUnit: 50 },
+  "scrambled eggs": { proteinPer100g: 10, caloriesPer100g: 150, defaultUnit: "piece", gramsPerUnit: 60 },
+  "omelette": { proteinPer100g: 11, caloriesPer100g: 150, defaultUnit: "piece", gramsPerUnit: 110 },
+  "milk": { proteinPer100g: 3.4, caloriesPer100g: 42, defaultUnit: "glass", gramsPerUnit: 250 },
+  "paneer": { proteinPer100g: 18, caloriesPer100g: 265, defaultUnit: "100g" },
+  "cottage cheese": { proteinPer100g: 11, caloriesPer100g: 98, defaultUnit: "100g" },
+  "curd": { proteinPer100g: 3.5, caloriesPer100g: 60, defaultUnit: "bowl", gramsPerUnit: 200 },
+  "yogurt": { proteinPer100g: 10, caloriesPer100g: 100, defaultUnit: "bowl", gramsPerUnit: 200 },
+  "greek yogurt": { proteinPer100g: 10, caloriesPer100g: 100, defaultUnit: "bowl", gramsPerUnit: 200 },
+  "cheese": { proteinPer100g: 25, caloriesPer100g: 400, defaultUnit: "slice", gramsPerUnit: 20 },
+  "butter": { proteinPer100g: 1, caloriesPer100g: 720, defaultUnit: "tbsp", gramsPerUnit: 10 },
   
   // Meat & Poultry
-  "chicken breast": { proteinPerUnit: 31, caloriesPerUnit: 165, defaultUnit: "100g" },
-  "chicken": { proteinPerUnit: 27, caloriesPerUnit: 239, defaultUnit: "100g" },
-  "grilled chicken": { proteinPerUnit: 31, caloriesPerUnit: 165, defaultUnit: "100g" },
-  "chicken thigh": { proteinPerUnit: 26, caloriesPerUnit: 209, defaultUnit: "100g" },
-  "mutton": { proteinPerUnit: 25, caloriesPerUnit: 294, defaultUnit: "100g" },
-  "fish": { proteinPerUnit: 22, caloriesPerUnit: 130, defaultUnit: "100g" },
-  "salmon": { proteinPerUnit: 20, caloriesPerUnit: 208, defaultUnit: "100g" },
-  "tuna": { proteinPerUnit: 30, caloriesPerUnit: 130, defaultUnit: "100g" },
-  "prawns": { proteinPerUnit: 24, caloriesPerUnit: 99, defaultUnit: "100g" },
-  "shrimp": { proteinPerUnit: 24, caloriesPerUnit: 99, defaultUnit: "100g" },
+  "chicken breast": { proteinPer100g: 31, caloriesPer100g: 165, defaultUnit: "100g" },
+  "chicken": { proteinPer100g: 27, caloriesPer100g: 239, defaultUnit: "100g" },
+  "grilled chicken": { proteinPer100g: 31, caloriesPer100g: 165, defaultUnit: "100g" },
+  "chicken thigh": { proteinPer100g: 26, caloriesPer100g: 209, defaultUnit: "100g" },
+  "mutton": { proteinPer100g: 25, caloriesPer100g: 294, defaultUnit: "100g" },
+  "fish": { proteinPer100g: 22, caloriesPer100g: 130, defaultUnit: "100g" },
+  "salmon": { proteinPer100g: 20, caloriesPer100g: 208, defaultUnit: "100g" },
+  "tuna": { proteinPer100g: 30, caloriesPer100g: 130, defaultUnit: "100g" },
+  "prawns": { proteinPer100g: 24, caloriesPer100g: 99, defaultUnit: "100g" },
+  "shrimp": { proteinPer100g: 24, caloriesPer100g: 99, defaultUnit: "100g" },
   
   // Legumes & Pulses
-  "dal": { proteinPerUnit: 9, caloriesPerUnit: 120, defaultUnit: "100g" },
-  "lentils": { proteinPerUnit: 9, caloriesPerUnit: 116, defaultUnit: "100g" },
-  "chickpeas": { proteinPerUnit: 8.9, caloriesPerUnit: 164, defaultUnit: "100g" },
-  "chana": { proteinPerUnit: 8.9, caloriesPerUnit: 164, defaultUnit: "100g" },
-  "rajma": { proteinPerUnit: 8.7, caloriesPerUnit: 127, defaultUnit: "100g" },
-  "kidney beans": { proteinPerUnit: 8.7, caloriesPerUnit: 127, defaultUnit: "100g" },
-  "moong dal": { proteinPerUnit: 7, caloriesPerUnit: 105, defaultUnit: "100g" },
-  "sprouts": { proteinPerUnit: 4, caloriesPerUnit: 31, defaultUnit: "100g" },
-  "soybean": { proteinPerUnit: 36, caloriesPerUnit: 446, defaultUnit: "100g" },
-  "tofu": { proteinPerUnit: 8, caloriesPerUnit: 76, defaultUnit: "100g" },
+  "dal": { proteinPer100g: 9, caloriesPer100g: 120, defaultUnit: "bowl", gramsPerUnit: 200 },
+  "lentils": { proteinPer100g: 9, caloriesPer100g: 116, defaultUnit: "bowl", gramsPerUnit: 200 },
+  "chickpeas": { proteinPer100g: 8.9, caloriesPer100g: 164, defaultUnit: "100g" },
+  "chana": { proteinPer100g: 8.9, caloriesPer100g: 164, defaultUnit: "bowl", gramsPerUnit: 200 },
+  "rajma": { proteinPer100g: 8.7, caloriesPer100g: 127, defaultUnit: "bowl", gramsPerUnit: 200 },
+  "kidney beans": { proteinPer100g: 8.7, caloriesPer100g: 127, defaultUnit: "100g" },
+  "moong dal": { proteinPer100g: 7, caloriesPer100g: 105, defaultUnit: "bowl", gramsPerUnit: 200 },
+  "sprouts": { proteinPer100g: 4, caloriesPer100g: 31, defaultUnit: "bowl", gramsPerUnit: 100 },
+  "soybean": { proteinPer100g: 36, caloriesPer100g: 446, defaultUnit: "100g" },
+  "tofu": { proteinPer100g: 8, caloriesPer100g: 76, defaultUnit: "100g" },
   
   // Grains & Cereals
-  "rice": { proteinPerUnit: 2.7, caloriesPerUnit: 130, defaultUnit: "100g" },
-  "brown rice": { proteinPerUnit: 2.6, caloriesPerUnit: 111, defaultUnit: "100g" },
-  "oats": { proteinPerUnit: 13, caloriesPerUnit: 389, defaultUnit: "100g" },
-  "oatmeal": { proteinPerUnit: 5, caloriesPerUnit: 150, defaultUnit: "bowl" },
-  "wheat bread": { proteinPerUnit: 4, caloriesPerUnit: 80, defaultUnit: "slice" },
-  "bread": { proteinPerUnit: 3, caloriesPerUnit: 75, defaultUnit: "slice" },
-  "roti": { proteinPerUnit: 3, caloriesPerUnit: 70, defaultUnit: "piece" },
-  "chapati": { proteinPerUnit: 3, caloriesPerUnit: 70, defaultUnit: "piece" },
-  "paratha": { proteinPerUnit: 4, caloriesPerUnit: 150, defaultUnit: "piece" },
-  "poha": { proteinPerUnit: 2, caloriesPerUnit: 130, defaultUnit: "bowl" },
-  "upma": { proteinPerUnit: 4, caloriesPerUnit: 160, defaultUnit: "bowl" },
-  "idli": { proteinPerUnit: 2, caloriesPerUnit: 39, defaultUnit: "piece" },
-  "dosa": { proteinPerUnit: 4, caloriesPerUnit: 133, defaultUnit: "piece" },
+  "rice": { proteinPer100g: 2.7, caloriesPer100g: 130, defaultUnit: "bowl", gramsPerUnit: 200 },
+  "brown rice": { proteinPer100g: 2.6, caloriesPer100g: 111, defaultUnit: "bowl", gramsPerUnit: 200 },
+  "oats": { proteinPer100g: 13, caloriesPer100g: 389, defaultUnit: "bowl", gramsPerUnit: 40 },
+  "oatmeal": { proteinPer100g: 5, caloriesPer100g: 150, defaultUnit: "bowl", gramsPerUnit: 250 },
+  "wheat bread": { proteinPer100g: 9, caloriesPer100g: 250, defaultUnit: "slice", gramsPerUnit: 30 },
+  "bread": { proteinPer100g: 8, caloriesPer100g: 250, defaultUnit: "slice", gramsPerUnit: 30 },
+  "roti": { proteinPer100g: 8, caloriesPer100g: 200, defaultUnit: "piece", gramsPerUnit: 35 },
+  "chapati": { proteinPer100g: 8, caloriesPer100g: 200, defaultUnit: "piece", gramsPerUnit: 35 },
+  "paratha": { proteinPer100g: 6, caloriesPer100g: 260, defaultUnit: "piece", gramsPerUnit: 60 },
+  "poha": { proteinPer100g: 2, caloriesPer100g: 130, defaultUnit: "bowl", gramsPerUnit: 250 },
+  "upma": { proteinPer100g: 3, caloriesPer100g: 130, defaultUnit: "bowl", gramsPerUnit: 250 },
+  "idli": { proteinPer100g: 4, caloriesPer100g: 80, defaultUnit: "piece", gramsPerUnit: 50 },
+  "dosa": { proteinPer100g: 4, caloriesPer100g: 133, defaultUnit: "piece", gramsPerUnit: 100 },
   
   // Supplements & Protein
-  "whey protein": { proteinPerUnit: 24, caloriesPerUnit: 120, defaultUnit: "scoop" },
-  "protein shake": { proteinPerUnit: 24, caloriesPerUnit: 120, defaultUnit: "scoop" },
-  "protein powder": { proteinPerUnit: 24, caloriesPerUnit: 120, defaultUnit: "scoop" },
-  "peanut butter": { proteinPerUnit: 8, caloriesPerUnit: 190, defaultUnit: "tbsp" },
-  "almonds": { proteinPerUnit: 21, caloriesPerUnit: 579, defaultUnit: "100g" },
-  "peanuts": { proteinPerUnit: 26, caloriesPerUnit: 567, defaultUnit: "100g" },
-  "walnuts": { proteinPerUnit: 15, caloriesPerUnit: 654, defaultUnit: "100g" },
-  "cashews": { proteinPerUnit: 18, caloriesPerUnit: 553, defaultUnit: "100g" },
+  "whey protein": { proteinPer100g: 80, caloriesPer100g: 400, defaultUnit: "scoop", gramsPerUnit: 30 },
+  "protein shake": { proteinPer100g: 80, caloriesPer100g: 400, defaultUnit: "scoop", gramsPerUnit: 30 },
+  "protein powder": { proteinPer100g: 80, caloriesPer100g: 400, defaultUnit: "scoop", gramsPerUnit: 30 },
+  "peanut butter": { proteinPer100g: 25, caloriesPer100g: 590, defaultUnit: "tbsp", gramsPerUnit: 32 },
+  "almonds": { proteinPer100g: 21, caloriesPer100g: 579, defaultUnit: "g" },
+  "peanuts": { proteinPer100g: 26, caloriesPer100g: 567, defaultUnit: "g" },
+  "walnuts": { proteinPer100g: 15, caloriesPer100g: 654, defaultUnit: "g" },
+  "cashews": { proteinPer100g: 18, caloriesPer100g: 553, defaultUnit: "g" },
   
   // Fruits & Vegetables
-  "banana": { proteinPerUnit: 1.1, caloriesPerUnit: 89, defaultUnit: "piece" },
-  "apple": { proteinPerUnit: 0.3, caloriesPerUnit: 52, defaultUnit: "piece" },
-  "mango": { proteinPerUnit: 0.8, caloriesPerUnit: 60, defaultUnit: "piece" },
-  "orange": { proteinPerUnit: 0.9, caloriesPerUnit: 47, defaultUnit: "piece" },
-  "spinach": { proteinPerUnit: 2.9, caloriesPerUnit: 23, defaultUnit: "100g" },
-  "broccoli": { proteinPerUnit: 2.8, caloriesPerUnit: 34, defaultUnit: "100g" },
-  "potato": { proteinPerUnit: 2, caloriesPerUnit: 77, defaultUnit: "100g" },
-  "sweet potato": { proteinPerUnit: 1.6, caloriesPerUnit: 86, defaultUnit: "100g" },
-  "avocado": { proteinPerUnit: 2, caloriesPerUnit: 160, defaultUnit: "piece" },
+  "banana": { proteinPer100g: 1.1, caloriesPer100g: 89, defaultUnit: "piece", gramsPerUnit: 120 },
+  "apple": { proteinPer100g: 0.3, caloriesPer100g: 52, defaultUnit: "piece", gramsPerUnit: 180 },
+  "mango": { proteinPer100g: 0.8, caloriesPer100g: 60, defaultUnit: "piece", gramsPerUnit: 200 },
+  "orange": { proteinPer100g: 0.9, caloriesPer100g: 47, defaultUnit: "piece", gramsPerUnit: 130 },
+  "spinach": { proteinPer100g: 2.9, caloriesPer100g: 23, defaultUnit: "100g" },
+  "broccoli": { proteinPer100g: 2.8, caloriesPer100g: 34, defaultUnit: "100g" },
+  "potato": { proteinPer100g: 2, caloriesPer100g: 77, defaultUnit: "piece", gramsPerUnit: 150 },
+  "sweet potato": { proteinPer100g: 1.6, caloriesPer100g: 86, defaultUnit: "piece", gramsPerUnit: 130 },
+  "avocado": { proteinPer100g: 2, caloriesPer100g: 160, defaultUnit: "piece", gramsPerUnit: 200 },
   
   // Beverages
-  "black coffee": { proteinPerUnit: 0.3, caloriesPerUnit: 2, defaultUnit: "cup" },
-  "coffee": { proteinPerUnit: 0.3, caloriesPerUnit: 2, defaultUnit: "cup" },
-  "tea": { proteinPerUnit: 0, caloriesPerUnit: 2, defaultUnit: "cup" },
-  "green tea": { proteinPerUnit: 0, caloriesPerUnit: 0, defaultUnit: "cup" },
-  "buttermilk": { proteinPerUnit: 3.3, caloriesPerUnit: 40, defaultUnit: "glass" },
-  "lassi": { proteinPerUnit: 4, caloriesPerUnit: 100, defaultUnit: "glass" },
-  "coconut water": { proteinPerUnit: 0.7, caloriesPerUnit: 46, defaultUnit: "glass" },
+  "black coffee": { proteinPer100g: 0.1, caloriesPer100g: 1, defaultUnit: "cup", gramsPerUnit: 240 },
+  "coffee": { proteinPer100g: 0.1, caloriesPer100g: 1, defaultUnit: "cup", gramsPerUnit: 240 },
+  "tea": { proteinPer100g: 0, caloriesPer100g: 1, defaultUnit: "cup", gramsPerUnit: 240 },
+  "green tea": { proteinPer100g: 0, caloriesPer100g: 0, defaultUnit: "cup", gramsPerUnit: 240 },
+  "buttermilk": { proteinPer100g: 3.3, caloriesPer100g: 40, defaultUnit: "glass", gramsPerUnit: 250 },
+  "lassi": { proteinPer100g: 2.5, caloriesPer100g: 60, defaultUnit: "glass", gramsPerUnit: 250 },
+  "coconut water": { proteinPer100g: 0.7, caloriesPer100g: 19, defaultUnit: "glass", gramsPerUnit: 250 },
 };
 
 // Food units
@@ -165,13 +187,66 @@ export const lookupNutrition = (foodName: string): NutritionInfo | null => {
   return null;
 };
 
+// Calculate total grams based on quantity and unit
+export const calculateGrams = (
+  quantity: number, 
+  unit: string, 
+  foodGramsPerUnit?: number
+): number => {
+  // For gram-based units, calculate directly
+  if (unit === "g") return quantity;
+  if (unit === "100g") return quantity * 100;
+  if (unit === "kg") return quantity * 1000;
+  if (unit === "ml") return quantity;
+  if (unit === "100ml") return quantity * 100;
+  if (unit === "liter") return quantity * 1000;
+  
+  // For non-gram units, use food-specific grams or default mapping
+  const gramsPerUnit = foodGramsPerUnit || UNIT_TO_GRAMS[unit] || 100;
+  return quantity * gramsPerUnit;
+};
+
+// Calculate nutrition based on food, quantity, and unit
+export const calculateNutrition = (
+  foodName: string,
+  quantity: number,
+  unit: string
+): { totalProtein: number; totalCalories: number; proteinPer100g: number; caloriesPer100g: number; isFromReference: boolean } => {
+  const nutrition = lookupNutrition(foodName);
+  
+  if (!nutrition) {
+    // Unknown food - return zero values
+    return {
+      totalProtein: 0,
+      totalCalories: 0,
+      proteinPer100g: 0,
+      caloriesPer100g: 0,
+      isFromReference: false,
+    };
+  }
+  
+  const totalGrams = calculateGrams(quantity, unit, nutrition.gramsPerUnit);
+  
+  const totalProtein = Math.round((totalGrams / 100) * nutrition.proteinPer100g * 10) / 10;
+  const totalCalories = Math.round((totalGrams / 100) * nutrition.caloriesPer100g);
+  
+  return {
+    totalProtein,
+    totalCalories,
+    proteinPer100g: nutrition.proteinPer100g,
+    caloriesPer100g: nutrition.caloriesPer100g,
+    isFromReference: true,
+  };
+};
+
 // Custom food storage (user-defined foods)
 export interface CustomFood {
   id: string;
   foodName: string;
-  proteinPerUnit: number;
-  caloriesPerUnit: number;
+  proteinPer100g: number;
+  caloriesPer100g: number;
   defaultUnit: string;
+  gramsPerUnit?: number;
   userId: string;
   createdAt: Date;
 }

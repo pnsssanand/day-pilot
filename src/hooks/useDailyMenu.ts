@@ -16,14 +16,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { 
   DailyMenuItem, 
   DailyMenuFormData, 
-  CustomFood,
   lookupNutrition 
 } from "@/types/nutrition";
 
 export const useDailyMenu = () => {
   const { user } = useAuth();
   const [menuItems, setMenuItems] = useState<DailyMenuItem[]>([]);
-  const [customFoods, setCustomFoods] = useState<CustomFood[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,74 +64,13 @@ export const useDailyMenu = () => {
     return () => unsubscribe();
   }, [user]);
 
-  // Fetch custom foods
-  useEffect(() => {
-    if (!user) {
-      setCustomFoods([]);
-      return;
-    }
-
-    const q = query(
-      collection(db, "customFoods"),
-      where("userId", "==", user.uid)
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const foods = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
-        })) as CustomFood[];
-        setCustomFoods(foods);
-      },
-      (err) => {
-        console.error("Error fetching custom foods:", err);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [user]);
-
-  // Look up nutrition from reference or custom foods
-  const getNutritionInfo = useCallback((foodName: string) => {
-    // First check reference table
-    const refNutrition = lookupNutrition(foodName);
-    if (refNutrition) {
-      return { ...refNutrition, isFromReference: true };
-    }
-
-    // Then check custom foods
-    const normalized = foodName.toLowerCase().trim();
-    const customFood = customFoods.find(
-      (f) => f.foodName.toLowerCase().trim() === normalized
-    );
-    if (customFood) {
-      return {
-        proteinPerUnit: customFood.proteinPerUnit,
-        caloriesPerUnit: customFood.caloriesPerUnit,
-        defaultUnit: customFood.defaultUnit,
-        isFromReference: false,
-      };
-    }
-
-    return null;
-  }, [customFoods]);
-
-  // Add a new menu item
+  // Add a new menu item (nutrition values are pre-calculated in the form)
   const addMenuItem = useCallback(
     async (itemData: DailyMenuFormData) => {
       if (!user) throw new Error("No user logged in");
 
-      // Calculate totals
-      const totalProtein = itemData.proteinPerUnit * itemData.quantity;
-      const totalCalories = itemData.caloriesPerUnit * itemData.quantity;
-
       const newItem = {
         ...itemData,
-        totalProtein,
-        totalCalories,
         userId: user.uid,
         createdAt: Timestamp.now(),
       };
@@ -143,27 +80,17 @@ export const useDailyMenu = () => {
     [user]
   );
 
-  // Update a menu item
+  // Update a menu item (nutrition values are pre-calculated in the form)
   const updateMenuItem = useCallback(
     async (itemId: string, updates: Partial<DailyMenuFormData>) => {
       const itemRef = doc(db, "dailyMenu", itemId);
       
-      // Recalculate totals if quantity or nutrition changed
-      const item = menuItems.find((i) => i.id === itemId);
-      if (item) {
-        const quantity = updates.quantity ?? item.quantity;
-        const proteinPerUnit = updates.proteinPerUnit ?? item.proteinPerUnit;
-        const caloriesPerUnit = updates.caloriesPerUnit ?? item.caloriesPerUnit;
-        
-        await updateDoc(itemRef, {
-          ...updates,
-          totalProtein: proteinPerUnit * quantity,
-          totalCalories: caloriesPerUnit * quantity,
-          updatedAt: Timestamp.now(),
-        });
-      }
+      await updateDoc(itemRef, {
+        ...updates,
+        updatedAt: Timestamp.now(),
+      });
     },
-    [menuItems]
+    []
   );
 
   // Delete a menu item
@@ -172,27 +99,11 @@ export const useDailyMenu = () => {
     await deleteDoc(itemRef);
   }, []);
 
-  // Add custom food to reference
-  const addCustomFood = useCallback(
-    async (foodData: Omit<CustomFood, "id" | "userId" | "createdAt">) => {
-      if (!user) throw new Error("No user logged in");
-
-      const newFood = {
-        ...foodData,
-        userId: user.uid,
-        createdAt: Timestamp.now(),
-      };
-
-      await addDoc(collection(db, "customFoods"), newFood);
-    },
-    [user]
-  );
-
   // Calculate daily totals
   const dailyTotals = useMemo(() => {
-    const totalProtein = menuItems.reduce((sum, item) => sum + item.totalProtein, 0);
-    const totalCalories = menuItems.reduce((sum, item) => sum + item.totalCalories, 0);
-    return { totalProtein: Math.round(totalProtein), totalCalories: Math.round(totalCalories) };
+    const totalProtein = menuItems.reduce((sum, item) => sum + (item.totalProtein || 0), 0);
+    const totalCalories = menuItems.reduce((sum, item) => sum + (item.totalCalories || 0), 0);
+    return { totalProtein: Math.round(totalProtein * 10) / 10, totalCalories: Math.round(totalCalories) };
   }, [menuItems]);
 
   // Group items by time period
@@ -217,14 +128,11 @@ export const useDailyMenu = () => {
 
   return {
     menuItems,
-    customFoods,
     loading,
     error,
     addMenuItem,
     updateMenuItem,
     deleteMenuItem,
-    addCustomFood,
-    getNutritionInfo,
     dailyTotals,
     groupedItems,
   };

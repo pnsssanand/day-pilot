@@ -28,10 +28,12 @@ import {
   Repeat, 
   Tag,
   FileText,
-  Sparkles
+  Sparkles,
+  AlertCircle
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -67,6 +69,7 @@ export const TaskModal = ({
   defaultDate,
   defaultTime,
 }: TaskModalProps) => {
+  const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [date, setDate] = useState<Date>(new Date());
@@ -75,6 +78,7 @@ export const TaskModal = ({
   const [priority, setPriority] = useState(false);
   const [repeat, setRepeat] = useState<"daily" | "weekly" | "monthly" | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (task) {
@@ -85,6 +89,7 @@ export const TaskModal = ({
       setCategory(task.category);
       setPriority(task.priority);
       setRepeat(task.repeat || null);
+      setError(null);
     } else {
       setTitle("");
       setNotes("");
@@ -93,12 +98,18 @@ export const TaskModal = ({
       setCategory("personal");
       setPriority(false);
       setRepeat(null);
+      setError(null);
     }
   }, [task, defaultDate, defaultTime, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    setError(null);
+    
+    if (!title.trim()) {
+      setError("Please enter a task title");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -106,13 +117,28 @@ export const TaskModal = ({
         title: title.trim(),
         notes: notes.trim() || null,
         date: format(date, "yyyy-MM-dd"),
-        time: time || null,
+        time: time === "none" ? null : (time || null),
         category,
         priority,
         completed: task?.completed || false,
         repeat: repeat || null,
       };
       await onSave(taskData);
+      
+      toast({
+        title: task ? "Task updated" : "Task added",
+        description: `"${title}" has been ${task ? "updated" : "added"} successfully.`,
+      });
+      
+      onClose();
+    } catch (err) {
+      console.error("Error saving task:", err);
+      setError("Failed to save task. Please try again.");
+      toast({
+        title: "Error",
+        description: "Failed to save task. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
@@ -209,14 +235,15 @@ export const TaskModal = ({
                 <Clock className="w-4 h-4 text-muted-foreground" />
                 Time
               </Label>
-              <Select value={time} onValueChange={setTime}>
+              <Select value={time || "none"} onValueChange={(v) => setTime(v === "none" ? "" : v)}>
                 <SelectTrigger id="time" className="h-11 rounded-xl border-border/50">
                   <SelectValue placeholder="Any time" />
                 </SelectTrigger>
                 <SelectContent className="max-h-60 rounded-xl">
-                  {TIME_OPTIONS.map((t) => (
-                    <SelectItem key={t || "none"} value={t || "none"}>
-                      {t || "Any time"}
+                  <SelectItem value="none">Any time</SelectItem>
+                  {TIME_OPTIONS.filter(t => t).map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -318,6 +345,18 @@ export const TaskModal = ({
               </motion.div>
             )}
           </motion.button>
+
+          {/* Error Display */}
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm"
+            >
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {error}
+            </motion.div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-2">

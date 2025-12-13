@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState, useMemo } from "react";
+import { motion } from "framer-motion";
 import { 
   DailyMenuItem, 
   DailyMenuFormData, 
   FOOD_UNITS, 
   FOOD_TIME_SLOTS,
-  lookupNutrition 
+  lookupNutrition,
+  calculateNutrition,
 } from "@/types/nutrition";
 import {
   Dialog,
@@ -32,16 +33,13 @@ import {
   Sparkles,
   AlertCircle,
   Check,
-  Search,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface FoodItemModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: DailyMenuFormData) => Promise<void>;
-  onAddCustomFood?: (food: { foodName: string; proteinPerUnit: number; caloriesPerUnit: number; defaultUnit: string }) => Promise<void>;
-  getNutritionInfo: (foodName: string) => { proteinPerUnit: number; caloriesPerUnit: number; defaultUnit: string; isFromReference: boolean } | null;
   item?: DailyMenuItem | null;
 }
 
@@ -57,109 +55,123 @@ export const FoodItemModal = ({
   isOpen,
   onClose,
   onSave,
-  onAddCustomFood,
-  getNutritionInfo,
   item,
 }: FoodItemModalProps) => {
+  const { toast } = useToast();
   const [foodName, setFoodName] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState("piece");
   const [time, setTime] = useState("09:00");
   const [notes, setNotes] = useState("");
-  const [proteinPerUnit, setProteinPerUnit] = useState(0);
-  const [caloriesPerUnit, setCaloriesPerUnit] = useState(0);
-  const [isFromReference, setIsFromReference] = useState(false);
-  const [needsCustomNutrition, setNeedsCustomNutrition] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [nutritionLookedUp, setNutritionLookedUp] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Check if food is found in database
+  const nutritionInfo = useMemo(() => {
+    if (!foodName.trim()) return null;
+    return lookupNutrition(foodName);
+  }, [foodName]);
+
+  const isFromReference = !!nutritionInfo;
+
+  // Auto-calculate nutrition based on food, quantity, and unit
+  const calculatedNutrition = useMemo(() => {
+    if (!foodName.trim()) {
+      return { totalProtein: 0, totalCalories: 0, proteinPer100g: 0, caloriesPer100g: 0, isFromReference: false };
+    }
+    return calculateNutrition(foodName, quantity, unit);
+  }, [foodName, quantity, unit]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
-    if (item) {
-      setFoodName(item.foodName);
-      setQuantity(item.quantity);
-      setUnit(item.unit);
-      setTime(item.time);
-      setNotes(item.notes || "");
-      setProteinPerUnit(item.proteinPerUnit);
-      setCaloriesPerUnit(item.caloriesPerUnit);
-      setIsFromReference(item.isFromReference);
-      setNeedsCustomNutrition(false);
-      setNutritionLookedUp(true);
-    } else {
-      setFoodName("");
-      setQuantity(1);
-      setUnit("piece");
-      setTime("09:00");
-      setNotes("");
-      setProteinPerUnit(0);
-      setCaloriesPerUnit(0);
-      setIsFromReference(false);
-      setNeedsCustomNutrition(false);
-      setNutritionLookedUp(false);
+    if (isOpen) {
+      if (item) {
+        setFoodName(item.foodName);
+        setQuantity(item.quantity);
+        setUnit(item.unit);
+        setTime(item.time);
+        setNotes(item.notes || "");
+        setValidationError(null);
+      } else {
+        setFoodName("");
+        setQuantity(1);
+        setUnit("piece");
+        setTime("09:00");
+        setNotes("");
+        setValidationError(null);
+      }
     }
   }, [item, isOpen]);
 
-  // Look up nutrition when food name changes
+  // Auto-set default unit when food is recognized
   useEffect(() => {
-    if (!foodName.trim() || item) return;
-
-    const timeoutId = setTimeout(() => {
-      const nutrition = getNutritionInfo(foodName);
-      if (nutrition) {
-        setProteinPerUnit(nutrition.proteinPerUnit);
-        setCaloriesPerUnit(nutrition.caloriesPerUnit);
-        setUnit(nutrition.defaultUnit);
-        setIsFromReference(nutrition.isFromReference);
-        setNeedsCustomNutrition(false);
-        setNutritionLookedUp(true);
-      } else {
-        setProteinPerUnit(0);
-        setCaloriesPerUnit(0);
-        setIsFromReference(false);
-        setNeedsCustomNutrition(true);
-        setNutritionLookedUp(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [foodName, getNutritionInfo, item]);
+    if (nutritionInfo && !item) {
+      const validUnit = FOOD_UNITS.includes(nutritionInfo.defaultUnit as any) 
+        ? nutritionInfo.defaultUnit 
+        : "piece";
+      setUnit(validUnit);
+    }
+  }, [nutritionInfo, item]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!foodName.trim()) return;
-    if (needsCustomNutrition && (proteinPerUnit === 0 && caloriesPerUnit === 0)) return;
+    setValidationError(null);
+    
+    // Validate required fields
+    if (!foodName.trim()) {
+      setValidationError("Please enter a food name");
+      return;
+    }
+    
+    if (quantity <= 0) {
+      setValidationError("Quantity must be greater than 0");
+      return;
+    }
+    
+    if (!time) {
+      setValidationError("Please select a time");
+      return;
+    }
+    
+    // Check if food is recognized
+    if (!isFromReference) {
+      setValidationError("Food not found in database. Please check the spelling or try a different name.");
+      return;
+    }
 
     setSaving(true);
     try {
-      // If custom nutrition, save it for future use
-      if (needsCustomNutrition && onAddCustomFood) {
-        await onAddCustomFood({
-          foodName: foodName.trim(),
-          proteinPerUnit,
-          caloriesPerUnit,
-          defaultUnit: unit,
-        });
-      }
-
       await onSave({
         foodName: foodName.trim(),
         quantity,
         unit,
         time,
         notes: notes.trim() || null,
-        proteinPerUnit,
-        caloriesPerUnit,
-        isFromReference,
+        totalProtein: calculatedNutrition.totalProtein,
+        totalCalories: calculatedNutrition.totalCalories,
+        proteinPer100g: calculatedNutrition.proteinPer100g,
+        caloriesPer100g: calculatedNutrition.caloriesPer100g,
+        isFromReference: true,
       });
+      
+      toast({
+        title: item ? "Food item updated" : "Food item added",
+        description: `${foodName} has been ${item ? "updated" : "added"} to your daily menu.`,
+      });
+      
       onClose();
+    } catch (error) {
+      console.error("Error saving food item:", error);
+      setValidationError("Failed to save food item. Please try again.");
+      toast({
+        title: "Error",
+        description: "Failed to save food item. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
   };
-
-  const totalProtein = Math.round(proteinPerUnit * quantity);
-  const totalCalories = Math.round(caloriesPerUnit * quantity);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -186,7 +198,7 @@ export const FoodItemModal = ({
                 className="h-12 rounded-xl border-border/50 focus:border-primary/50 pr-10"
                 autoFocus
               />
-              {nutritionLookedUp && (
+              {isFromReference && (
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
@@ -196,14 +208,14 @@ export const FoodItemModal = ({
                 </motion.div>
               )}
             </div>
-            {needsCustomNutrition && foodName && (
+            {foodName.trim() && !isFromReference && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400"
               >
                 <AlertCircle className="w-4 h-4" />
-                <span>Not in database. Please enter nutrition info below.</span>
+                <span>Food not found. Try: eggs, chicken, rice, oats, banana...</span>
               </motion.div>
             )}
           </div>
@@ -228,7 +240,7 @@ export const FoodItemModal = ({
               <Label className="text-sm font-medium">Unit</Label>
               <Select value={unit} onValueChange={setUnit}>
                 <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue />
+                  <SelectValue placeholder="Select unit" />
                 </SelectTrigger>
                 <SelectContent>
                   {FOOD_UNITS.map((u) => (
@@ -261,79 +273,36 @@ export const FoodItemModal = ({
             </Select>
           </div>
 
-          {/* Custom Nutrition Input (when not in reference) */}
-          <AnimatePresence>
-            {(needsCustomNutrition || item) && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="space-y-4 p-4 rounded-xl bg-muted/50 border border-border/50"
-              >
-                <p className="text-sm font-medium text-foreground">
-                  Nutrition per {unit}
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm flex items-center gap-2">
-                      <Dumbbell className="w-4 h-4 text-emerald-500" />
-                      Protein (g)
-                    </Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={proteinPerUnit}
-                      onChange={(e) => setProteinPerUnit(parseFloat(e.target.value) || 0)}
-                      className="h-10 rounded-xl"
-                      disabled={isFromReference && !item}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm flex items-center gap-2">
-                      <Flame className="w-4 h-4 text-orange-500" />
-                      Calories
-                    </Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={caloriesPerUnit}
-                      onChange={(e) => setCaloriesPerUnit(parseFloat(e.target.value) || 0)}
-                      className="h-10 rounded-xl"
-                      disabled={isFromReference && !item}
-                    />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Calculated Totals Preview */}
-          {(proteinPerUnit > 0 || caloriesPerUnit > 0) && (
+          {/* Auto-Calculated Nutrition Display */}
+          {isFromReference && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center justify-center gap-6 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-orange-50 dark:from-emerald-950/30 dark:to-orange-950/30 border border-emerald-200/50 dark:border-emerald-800/30"
+              className="p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-orange-50 dark:from-emerald-950/30 dark:to-orange-950/30 border border-emerald-200/50 dark:border-emerald-800/30"
             >
-              <div className="text-center">
-                <div className="flex items-center gap-1 justify-center">
-                  <Dumbbell className="w-4 h-4 text-emerald-500" />
-                  <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                    {totalProtein}g
-                  </span>
+              <p className="text-xs text-muted-foreground text-center mb-3">
+                Auto-calculated nutrition for {quantity} {unit}
+              </p>
+              <div className="flex items-center justify-center gap-8">
+                <div className="text-center">
+                  <div className="flex items-center gap-1 justify-center">
+                    <Dumbbell className="w-4 h-4 text-emerald-500" />
+                    <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {calculatedNutrition.totalProtein}g
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">Protein</span>
                 </div>
-                <span className="text-xs text-muted-foreground">Protein</span>
-              </div>
-              <div className="w-px h-10 bg-border" />
-              <div className="text-center">
-                <div className="flex items-center gap-1 justify-center">
-                  <Flame className="w-4 h-4 text-orange-500" />
-                  <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                    {totalCalories}
-                  </span>
+                <div className="w-px h-10 bg-border" />
+                <div className="text-center">
+                  <div className="flex items-center gap-1 justify-center">
+                    <Flame className="w-4 h-4 text-orange-500" />
+                    <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                      {calculatedNutrition.totalCalories}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">Calories</span>
                 </div>
-                <span className="text-xs text-muted-foreground">Calories</span>
               </div>
             </motion.div>
           )}
@@ -352,11 +321,23 @@ export const FoodItemModal = ({
             />
           </div>
 
+          {/* Validation Error */}
+          {validationError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive"
+            >
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm">{validationError}</span>
+            </motion.div>
+          )}
+
           {/* Submit Button */}
           <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
             <Button
               type="submit"
-              disabled={saving || !foodName.trim()}
+              disabled={saving || !foodName.trim() || quantity <= 0 || !time || !isFromReference}
               className="w-full h-12 rounded-xl font-medium shadow-lg hover:shadow-xl transition-shadow"
             >
               {saving ? (

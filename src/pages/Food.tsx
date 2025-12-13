@@ -94,8 +94,6 @@ const Food = () => {
     addMenuItem,
     updateMenuItem,
     deleteMenuItem,
-    addCustomFood,
-    getNutritionInfo,
     dailyTotals,
     groupedItems,
   } = useDailyMenu();
@@ -364,8 +362,6 @@ const Food = () => {
             setEditingItem(null);
           }}
           onSave={handleSave}
-          onAddCustomFood={addCustomFood}
-          getNutritionInfo={getNutritionInfo}
           item={editingItem}
         />
       </main>

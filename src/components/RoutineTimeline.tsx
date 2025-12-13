@@ -31,6 +31,7 @@ interface RoutineTimelineProps {
   selectedDate: string;
   onToggleComplete: (blockId: string, completed: boolean) => Promise<void>;
   onTogglePriority: (blockId: string, priority: boolean) => Promise<void>;
+  onToggleLock: (blockId: string, isLocked: boolean) => Promise<void>;
   onUpdateBlock: (blockId: string, updates: Partial<RoutineBlockFormData>) => Promise<void>;
   onDeleteBlock: (blockId: string) => Promise<void>;
   onResetToDefault: () => Promise<void>;
@@ -96,6 +97,7 @@ const PeriodSection = ({
   currentBlockId,
   onToggleComplete,
   onTogglePriority,
+  onToggleLock,
   onEdit,
   onDelete,
 }: {
@@ -106,6 +108,7 @@ const PeriodSection = ({
   currentBlockId: string | null;
   onToggleComplete: (id: string, completed: boolean) => Promise<void>;
   onTogglePriority: (id: string, priority: boolean) => Promise<void>;
+  onToggleLock: (id: string, isLocked: boolean) => Promise<void>;
   onEdit: (block: RoutineBlock) => void;
   onDelete: (id: string) => Promise<void>;
 }) => {
@@ -157,6 +160,7 @@ const PeriodSection = ({
                   block={block}
                   onToggleComplete={onToggleComplete}
                   onTogglePriority={onTogglePriority}
+                  onToggleLock={onToggleLock}
                   onEdit={onEdit}
                   onDelete={onDelete}
                   isCurrentTimeBlock={block.id === currentBlockId}
@@ -176,6 +180,7 @@ export const RoutineTimeline = ({
   selectedDate,
   onToggleComplete,
   onTogglePriority,
+  onToggleLock,
   onUpdateBlock,
   onDeleteBlock,
   onResetToDefault,
@@ -308,6 +313,7 @@ export const RoutineTimeline = ({
           currentBlockId={currentBlockId}
           onToggleComplete={onToggleComplete}
           onTogglePriority={onTogglePriority}
+          onToggleLock={onToggleLock}
           onEdit={handleEdit}
           onDelete={onDeleteBlock}
         />
@@ -320,6 +326,7 @@ export const RoutineTimeline = ({
           currentBlockId={currentBlockId}
           onToggleComplete={onToggleComplete}
           onTogglePriority={onTogglePriority}
+          onToggleLock={onToggleLock}
           onEdit={handleEdit}
           onDelete={onDeleteBlock}
         />
@@ -332,6 +339,7 @@ export const RoutineTimeline = ({
           currentBlockId={currentBlockId}
           onToggleComplete={onToggleComplete}
           onTogglePriority={onTogglePriority}
+          onToggleLock={onToggleLock}
           onEdit={handleEdit}
           onDelete={onDeleteBlock}
         />
@@ -344,6 +352,7 @@ export const RoutineTimeline = ({
           currentBlockId={currentBlockId}
           onToggleComplete={onToggleComplete}
           onTogglePriority={onTogglePriority}
+          onToggleLock={onToggleLock}
           onEdit={handleEdit}
           onDelete={onDeleteBlock}
         />

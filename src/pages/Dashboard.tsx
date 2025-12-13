@@ -48,6 +48,7 @@ const Dashboard = () => {
     updateBlock,
     toggleComplete: toggleRoutineComplete,
     togglePriority: toggleRoutinePriority,
+    toggleLock: toggleRoutineLock,
     deleteBlock,
     resetToDefault,
     stats: routineStats,
@@ -300,6 +301,7 @@ const Dashboard = () => {
                   selectedDate={selectedDate}
                   onToggleComplete={toggleRoutineComplete}
                   onTogglePriority={toggleRoutinePriority}
+                  onToggleLock={toggleRoutineLock}
                   onUpdateBlock={updateBlock}
                   onDeleteBlock={deleteBlock}
                   onResetToDefault={resetToDefault}

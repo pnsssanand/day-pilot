@@ -165,12 +165,12 @@ export const CompanyTaskModal = ({
               <Clock className="w-4 h-4 text-muted-foreground" />
               Time (Optional)
             </Label>
-            <Select value={time} onValueChange={setTime}>
+            <Select value={time || "none"} onValueChange={(v) => setTime(v === "none" ? "" : v)}>
               <SelectTrigger className="h-11 rounded-xl">
                 <SelectValue placeholder="Select time">{formatTimeDisplay(time)}</SelectValue>
               </SelectTrigger>
               <SelectContent className="max-h-60">
-                <SelectItem value="">No time</SelectItem>
+                <SelectItem value="none">No time</SelectItem>
                 {TIME_OPTIONS.filter(t => t).map((t) => (
                   <SelectItem key={t} value={t}>
                     {formatTimeDisplay(t)}
